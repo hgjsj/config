@@ -57,11 +57,12 @@ func ReadDefault(fname string) (*Config, error) {
 
 func (c *Config) read(buf *bufio.Reader) (err error) {
 	var section, option string
+	var stop = false
 
 	for {
 		l, err := buf.ReadString('\n') // parse line-by-line
 		if err == io.EOF {
-			break
+			stop = true
 		} else if err != nil {
 			return err
 		}
@@ -108,6 +109,10 @@ func (c *Config) read(buf *bufio.Reader) (err error) {
 			default:
 				return errors.New("could not parse line: " + l)
 			}
+		}
+		
+		if stop {
+			break
 		}
 	}
 	return nil
