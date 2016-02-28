@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	tmp    = "testdata/__test.go"
-	source = "testdata/source.cfg"
-	target = "testdata/target.cfg"
+	tmpFilename    = "testdata/__test.go"
+	sourceFilename = "testdata/source.cfg"
+	targetFilename = "testdata/target.cfg"
 )
 
 func testGet(t *testing.T, c *Config, section string, option string,
@@ -51,7 +51,8 @@ func testGet(t *testing.T, c *Config, section string, option string,
 		t.Fatalf("Bad test case")
 	}
 	if !ok {
-		t.Errorf("Get failure: expected different value for %s %s", section, option)
+		v, _ := c.String(section, option)
+		t.Errorf("Get failure: expected different value for %s %s (expected: [%#v] got: [%#v])", section, option, expected, v)
 	}
 }
 
@@ -199,31 +200,37 @@ func TestInMemory(t *testing.T) {
 
 // TestReadFile creates a 'tough' configuration file and test (read) parsing.
 func TestReadFile(t *testing.T) {
-	file, err := os.Create(tmp)
+	file, err := os.Create(tmpFilename)
 	if err != nil {
-		t.Fatal("Test cannot run because cannot write temporary file: " + tmp)
+		t.Fatal("Test cannot run because cannot write temporary file: " + tmpFilename)
+	}
+
+	err = os.Setenv("GO_CONFIGFILE_TEST_ENV_VAR", "configvalue12345")
+	if err != nil {
+		t.Fatalf("Test cannot run because cannot set environment variable GO_CONFIGFILE_TEST_ENV_VAR: %#v", err)
 	}
 
 	buf := bufio.NewWriter(file)
 	buf.WriteString("optionInDefaultSection=true\n")
 	buf.WriteString("[section-1]\n")
-	buf.WriteString("  option1=value1 ; This is a comment\n")
-	buf.WriteString(" option2 : 2#Not a comment\t#Now this is a comment after a TAB\n")
+	buf.WriteString("option1=value1 ; This is a comment\n")
+	buf.WriteString("option2 : 2#Not a comment\t#Now this is a comment after a TAB\n")
 	buf.WriteString("  # Let me put another comment\n")
-	buf.WriteString("    option3= line1\nline2 \n\tline3 # Comment\n")
+	buf.WriteString("option3= line1\n line2: \n\tline3=v # Comment multiline with := in value\n")
 	buf.WriteString("; Another comment\n")
 	buf.WriteString("[" + DEFAULT_SECTION + "]\n")
 	buf.WriteString("variable1=small\n")
 	buf.WriteString("variable2=a_part_of_a_%(variable1)s_test\n")
 	buf.WriteString("[secTION-2]\n")
 	buf.WriteString("IS-flag-TRUE=Yes\n")
-	buf.WriteString("[section-1]\n") // continue again [section-1]
+	buf.WriteString("[section-1] # comment on section header\n") // continue again [section-1]
 	buf.WriteString("option4=this_is_%(variable2)s.\n")
-	buf.WriteString("optionInDefaultSection=false\n")
+	buf.WriteString("envoption1=this_uses_${GO_CONFIGFILE_TEST_ENV_VAR}_env\n")
+	buf.WriteString("optionInDefaultSection=false")
 	buf.Flush()
 	file.Close()
 
-	c, err := ReadDefault(tmp)
+	c, err := ReadDefault(tmpFilename)
 	if err != nil {
 		t.Fatalf("ReadDefault failure: %s", err)
 	}
@@ -233,16 +240,17 @@ func TestReadFile(t *testing.T) {
 		t.Errorf("Sections failure: wrong number of sections")
 	}
 
-	// check number of options 4 of [section-1] plus 2 of [default]
+	// check number of options 6 of [section-1] plus 2 of [default]
 	opts, err := c.Options("section-1")
-	if len(opts) != 7 {
+	if len(opts) != 8 {
 		t.Errorf("Options failure: wrong number of options: %d", len(opts))
 	}
 
 	testGet(t, c, "section-1", "option1", "value1")
 	testGet(t, c, "section-1", "option2", "2#Not a comment")
-	testGet(t, c, "section-1", "option3", "line1\nline2\nline3")
+	testGet(t, c, "section-1", "option3", "line1\nline2:\nline3=v")
 	testGet(t, c, "section-1", "option4", "this_is_a_part_of_a_small_test.")
+	testGet(t, c, "section-1", "envoption1", "this_uses_configvalue12345_env")
 	testGet(t, c, "section-1", "optionInDefaultSection", false)
 	testGet(t, c, "section-2", "optionInDefaultSection", true)
 	testGet(t, c, "secTION-2", "IS-flag-TRUE", true) // case-sensitive
@@ -264,10 +272,10 @@ func TestWriteReadFile(t *testing.T) {
 	cw.AddOption("Another-Section", "useHTTPS", "y")
 	cw.AddOption("Another-Section", "url", "%(base-url)s/some/path")
 
-	cw.WriteFile(tmp, 0644, "Test file for test-case")
+	cw.WriteFile(tmpFilename, 0644, "Test file for test-case")
 
 	// read back file and test
-	cr, err := ReadDefault(tmp)
+	cr, err := ReadDefault(tmpFilename)
 	if err != nil {
 		t.Fatalf("ReadDefault failure: %s", err)
 	}
@@ -277,7 +285,7 @@ func TestWriteReadFile(t *testing.T) {
 	testGet(t, cr, "Another-Section", "useHTTPS", true)
 	testGet(t, cr, "Another-Section", "url", "https://www.example.com/some/path")
 
-	defer os.Remove(tmp)
+	defer os.Remove(tmpFilename)
 }
 
 // TestSectionOptions tests read options in a section without default options.
@@ -296,10 +304,10 @@ func TestSectionOptions(t *testing.T) {
 	cw.AddOption("Another-Section", "useHTTPS", "y")
 	cw.AddOption("Another-Section", "url", "%(base-url)s/some/path")
 
-	cw.WriteFile(tmp, 0644, "Test file for test-case")
+	cw.WriteFile(tmpFilename, 0644, "Test file for test-case")
 
 	// read back file and test
-	cr, err := ReadDefault(tmp)
+	cr, err := ReadDefault(tmpFilename)
 	if err != nil {
 		t.Fatalf("ReadDefault failure: %s", err)
 	}
@@ -349,19 +357,19 @@ func TestSectionOptions(t *testing.T) {
 		t.Fatalf("SectionOptions reads wrong data: %v", options)
 	}
 
-	defer os.Remove(tmp)
+	defer os.Remove(tmpFilename)
 }
 
 // TestMerge tests merging 2 configurations.
 func TestMerge(t *testing.T) {
-	target, error := ReadDefault(target)
+	target, error := ReadDefault(targetFilename)
 	if error != nil {
-		t.Fatalf("Unable to read target config file '%s'", target)
+		t.Fatalf("Unable to read target config file '%s'", targetFilename)
 	}
 
-	source, error := ReadDefault(source)
+	source, error := ReadDefault(sourceFilename)
 	if error != nil {
-		t.Fatalf("Unable to read source config file '%s'", source)
+		t.Fatalf("Unable to read source config file '%s'", sourceFilename)
 	}
 
 	target.Merge(source)
