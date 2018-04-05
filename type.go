@@ -72,6 +72,14 @@ func (c *Config) Bool(section string, option string) (value bool, err error) {
 	return value, nil
 }
 
+func (c *Config) RdBool(section string, option string,sample bool) (value bool) {
+	value , err := c.Bool(section, option)
+	if err!=nil {
+		value=sample
+	}
+	return value
+}
+
 // Float has the same behaviour as String but converts the response to float.
 func (c *Config) Float(section string, option string) (value float64, err error) {
 	sv, err := c.String(section, option)
@@ -80,6 +88,14 @@ func (c *Config) Float(section string, option string) (value float64, err error)
 	}
 
 	return value, err
+}
+
+func (c *Config) RdFloat(section string, option string,sample float64) (value float64) {
+	value, err := c.Float(section, option)
+	if err!=nil {
+		value=sample
+	}
+	return value
 }
 
 // Int has the same behaviour as String but converts the response to int.
@@ -91,6 +107,56 @@ func (c *Config) Int(section string, option string) (value int, err error) {
 
 	return value, err
 }
+
+// Int has the same behaviour as String but converts the response to int.
+func (c *Config) RdInt(section string, option string,sample int) (value int) {
+	value, err := c.Int(section, option)
+	if err!=nil {
+		value=sample
+	}
+	return value
+}
+
+
+// Int has the same behaviour as String but converts the response to int32.
+func (c *Config) Int32(section string, option string) (value int32, err error) {
+	sv, err := c.String(section, option)
+	if err == nil {
+		value64, err:= strconv.ParseInt(sv, 10, 32)
+		value=int32(value64)
+		err=err
+	}
+	return value, err
+}
+
+// Int has the same behaviour as String but converts the response to int32.
+func (c *Config) RdInt32(section string, option string,sample int32) (value int32) {
+	value, err := c.Int32(section, option)
+	if err!=nil {
+		value=sample
+	}
+	return value
+}
+
+// Int has the same behaviour as String but converts the response to int32.
+func (c *Config) Int64(section string, option string) (value int64, err error) {
+	sv, err := c.String(section, option)
+	if err == nil {
+		value, err= strconv.ParseInt(sv, 10, 64)
+	}
+	return value, err
+}
+
+// Int has the same behaviour as String but converts the response to int32.
+func (c *Config) RdInt64(section string, option string,sample int64) (value int64) {
+	value, err := c.Int64(section, option)
+	if err!=nil {
+		value=sample
+	}
+	return value
+}
+
+
 
 // RawString gets the (raw) string value for the given option in the section.
 // The raw string value is not subjected to unfolding, which was illustrated in
@@ -152,4 +218,12 @@ func (c *Config) String(section string, option string) (value string, err error)
 	})
 	value = *computedVal
 	return value, err
+}
+
+func (c *Config) RdString(section string, option string,sample string) (value string) {
+	value,err:=c.String(section,option)
+	if err!=nil {
+		value=sample
+	}
+	return value
 }

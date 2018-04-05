@@ -26,6 +26,7 @@ import (
 // That representation can be queried with GetString, etc.
 func _read(fname string, c *Config) (*Config, error) {
 	file, err := os.Open(fname)
+	defer file.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -34,9 +35,9 @@ func _read(fname string, c *Config) (*Config, error) {
 		return nil, err
 	}
 
-	if err = file.Close(); err != nil {
-		return nil, err
-	}
+	//if err = file.Close(); err != nil {
+	//	return nil, err
+	//}
 
 	return c, nil
 }
